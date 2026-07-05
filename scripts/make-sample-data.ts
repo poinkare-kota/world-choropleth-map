@@ -7,7 +7,7 @@
 // =====================================================================
 import { resolve } from "node:path";
 import { THEMES, MEMBERS } from "../src/themes";
-import type { Theme, ThemeMeta, ValueRecord } from "../src/types";
+import type { CatalogEntry, Theme, ThemeMeta, ValueRecord } from "../src/types";
 import { DATA_DIR, VALID_ISO3, VALID_SET, writeJSON, writeManifest, pool } from "./common";
 
 // 文字列 → 0..1 の決定的擬似乱数
@@ -92,8 +92,16 @@ async function main() {
     metas.push({ id, coverage: Object.keys(rec).length, min: 0, max: 1, latestYear: null });
   }
 
+  // カタログUIの確認用に擬似カタログも生成（オフラインでは選択時の取得は失敗表示になる）
+  const fakeCatalog: CatalogEntry[] = Array.from({ length: 300 }, (_, i) => [
+    `SAMPLE.IND.${String(i + 1).padStart(4, "0")}`,
+    `Sample indicator #${i + 1}${i % 3 === 0 ? " (% of total)" : ""}`,
+    i % 3 === 0 ? "%" : "",
+  ]);
+  writeJSON(resolve(DATA_DIR, "catalog.json"), fakeCatalog);
+
   writeManifest(metas, "SAMPLE (synthetic, offline)", new Date().toISOString());
-  console.log(`Sample data written: ${quant.length} quantitative + ${Object.keys(MEMBERS).length} categorical.`);
+  console.log(`Sample data written: ${quant.length} quantitative + ${Object.keys(MEMBERS).length} categorical + ${fakeCatalog.length} sample catalog.`);
 }
 
 main().catch((e) => {

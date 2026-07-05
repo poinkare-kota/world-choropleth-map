@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
-import { THEMES, GROUP_ORDER } from "./themes";
+import { THEMES, GROUP_ORDER, CATALOG_GROUP, TARGET_THEME_COUNT, themeFromCatalog } from "./themes";
 import type { CategoryRecord, ValueRecord } from "./types";
-import { useManifest, useThemeData } from "./lib/useThemeData";
-import { buildColorScale } from "./lib/scales";
+import { useCatalog, useManifest, useThemeData } from "./lib/useThemeData";
+import { buildColorScale, decideScale } from "./lib/scales";
 import { formatValue, NO_DATA_COLOR } from "./lib/format";
 import { ThemeSelector } from "./components/ThemeSelector";
 import { MapChart, type GeoFeature } from "./components/MapChart";
@@ -20,6 +20,7 @@ export default function App() {
   }, []);
 
   const { manifest, error } = useManifest();
+  const catalog = useCatalog();
 
   const availableThemes = useMemo(() => {
     if (!manifest) return [];
@@ -27,20 +28,48 @@ export default function App() {
     return THEMES.filter((t) => (cov.get(t.id) ?? 0) > 0);
   }, [manifest]);
 
+  // 全指標カタログ: 厳選テーマと合わせて合計 TARGET_THEME_COUNT(=10,000) になるよう切り詰める
+  const catalogThemes = useMemo(() => {
+    if (!catalog || !manifest) return [];
+    const curated = new Set(THEMES.map((t) => t.id));
+    const room = Math.max(0, TARGET_THEME_COUNT - availableThemes.length);
+    return catalog
+      .filter((e) => !curated.has(e[0]))
+      .slice(0, room)
+      .map(themeFromCatalog);
+  }, [catalog, manifest, availableThemes]);
+
+  const allThemes = useMemo(
+    () => [...availableThemes, ...catalogThemes],
+    [availableThemes, catalogThemes],
+  );
+
   const groups = useMemo(
-    () => GROUP_ORDER.filter((g) => availableThemes.some((t) => t.group === g)),
-    [availableThemes],
+    () =>
+      GROUP_ORDER.filter(
+        (g) => availableThemes.some((t) => t.group === g) || (g === CATALOG_GROUP && catalogThemes.length > 0),
+      ),
+    [availableThemes, catalogThemes],
   );
 
   const [selectedId, setSelectedId] = useState<string>("SP.POP.TOTL");
   useEffect(() => {
-    if (availableThemes.length && !availableThemes.some((t) => t.id === selectedId)) {
-      setSelectedId(availableThemes[0].id);
+    if (allThemes.length && !allThemes.some((t) => t.id === selectedId)) {
+      setSelectedId(allThemes[0].id);
     }
-  }, [availableThemes, selectedId]);
+  }, [allThemes, selectedId]);
 
-  const theme = availableThemes.find((t) => t.id === selectedId) ?? availableThemes[0] ?? null;
-  const data = useThemeData(theme, manifest);
+  const baseTheme = allThemes.find((t) => t.id === selectedId) ?? allThemes[0] ?? null;
+  const data = useThemeData(baseTheme, manifest);
+
+  // カタログテーマはスケール未定義なので、取得データの分布から自動判定する
+  const theme = useMemo(() => {
+    if (!baseTheme) return null;
+    if (baseTheme.source === "worldbank-live" && baseTheme.scale === undefined) {
+      return { ...baseTheme, scale: decideScale(data.min, data.max) };
+    }
+    return baseTheme;
+  }, [baseTheme, data.min, data.max]);
 
   const colorScale = useMemo(
     () => (theme && theme.type === "quantitative" ? buildColorScale(theme, data.min, data.max) : null),
@@ -109,11 +138,24 @@ export default function App() {
       {theme && manifest && (
         <>
           <ThemeSelector
-            themes={availableThemes}
+            themes={allThemes}
             groups={groups}
             selectedId={theme.id}
             onSelect={setSelectedId}
           />
+
+          {data.loading && <div className="notice">「{theme.label}」のデータを取得中…</div>}
+          {!data.loading && data.error && theme.source === "worldbank-live" && (
+            <div className="notice error">
+              World Bank API からのデータ取得に失敗しました。時間をおいて再試行してください。
+              <br />
+              <span className="mono">{data.error}</span>
+            </div>
+          )}
+          {!data.loading && !data.error && theme.source === "worldbank-live" && data.records &&
+            Object.keys(data.records).length === 0 && (
+              <div className="notice">この指標には表示可能な国別データがありません。別のテーマをお試しください。</div>
+            )}
 
           <main className="stage">
             <MapChart features={features} colorOf={colorOf} describe={describe} onHover={onHover} />
@@ -130,7 +172,13 @@ export default function App() {
                 収録国: {meta.coverage}か国 ・ 最新年: {meta.latestYear ?? "—"}
               </span>
             )}
-            <span>テーマ数: {availableThemes.length}</span>
+            {!meta && theme.type === "quantitative" && data.records && (
+              <span>収録国: {Object.keys(data.records).length}か国</span>
+            )}
+            <span>
+              テーマ数: {allThemes.length.toLocaleString()}
+              {catalogThemes.length > 0 && `（厳選 ${availableThemes.length} + カタログ ${catalogThemes.length.toLocaleString()}）`}
+            </span>
           </footer>
         </>
       )}

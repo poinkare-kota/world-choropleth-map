@@ -13,10 +13,20 @@ export function ThemeSelector({ themes, groups, selectedId, onSelect }: Props) {
   const [query, setQuery] = useState("");
 
   const visible = useMemo(() => {
-    const q = query.trim();
-    if (q) return themes.filter((t) => t.label.includes(q) || (t.indicator ?? "").includes(q));
+    const q = query.trim().toLowerCase();
+    if (q)
+      return themes.filter(
+        (t) =>
+          t.label.toLowerCase().includes(q) ||
+          (t.nameEn ?? "").toLowerCase().includes(q) ||
+          (t.indicator ?? "").toLowerCase().includes(q),
+      );
     return themes.filter((t) => t.group === activeGroup);
   }, [themes, activeGroup, query]);
+
+  // カタログ導入でテーマが1万件になるため、描画は上限を設けて検索で絞ってもらう
+  const MAX_SHOWN = 200;
+  const shown = visible.length > MAX_SHOWN ? visible.slice(0, MAX_SHOWN) : visible;
 
   return (
     <div className="selector">
@@ -24,7 +34,7 @@ export function ThemeSelector({ themes, groups, selectedId, onSelect }: Props) {
         <input
           className="search"
           type="search"
-          placeholder="テーマを検索（例: GDP, 寿命, CO₂ …）"
+          placeholder="テーマを検索（例: GDP, 寿命, CO₂, forest, trade …）"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -45,7 +55,7 @@ export function ThemeSelector({ themes, groups, selectedId, onSelect }: Props) {
       )}
 
       <div className="selector-row themes">
-        {visible.map((t) => (
+        {shown.map((t) => (
           <button
             key={t.id}
             className={"theme-chip" + (t.id === selectedId ? " active" : "")}
@@ -55,6 +65,11 @@ export function ThemeSelector({ themes, groups, selectedId, onSelect }: Props) {
             {t.label}
           </button>
         ))}
+        {visible.length > shown.length && (
+          <span className="empty">
+            …ほか {(visible.length - shown.length).toLocaleString()} 件（検索で絞り込めます）
+          </span>
+        )}
         {visible.length === 0 && <span className="empty">該当するテーマがありません</span>}
       </div>
     </div>

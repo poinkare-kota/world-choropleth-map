@@ -1,6 +1,12 @@
 import * as chromatic from "d3-scale-chromatic";
 import { scaleSequential, scaleSequentialLog } from "d3-scale";
-import type { Theme } from "../types";
+import type { ScaleType, Theme } from "../types";
+
+// カタログテーマ用: データの分布からスケール種別を自動判定。
+// 全て正の値で桁が大きく開いている（200倍以上）なら対数、それ以外は線形。
+export function decideScale(min: number, max: number): ScaleType {
+  return min > 0 && max / min >= 200 ? "log" : "linear";
+}
 
 type Interp = (t: number) => string;
 

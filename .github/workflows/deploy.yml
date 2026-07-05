@@ -38,6 +38,10 @@ jobs:
       - name: Fetch data (World Bank)
         run: npm run fetch || (echo "::warning::World Bank fetch failed; using sample data" && npm run fetch:sample)
 
+      # 全指標カタログを取得（失敗してもサイトは厳選テーマのみで動作する）
+      - name: Fetch indicator catalog (World Bank)
+        run: npm run fetch:catalog || echo "::warning::Catalog fetch failed; catalog themes disabled"
+
       - name: Build
         run: npm run build
 

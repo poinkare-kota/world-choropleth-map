@@ -27,12 +27,14 @@ export interface CategoryDef {
 
 export interface Theme {
   id: string; // 一意ID（定量=WB指標コード、カテゴリ=cat_xxx）
-  label: string; // 日本語表示名
+  label: string; // 表示名（厳選テーマ=日本語、カタログテーマ=英語）
+  nameEn?: string; // 英語名（カタログテーマの検索用）
   group: string; // カテゴリ（UIタブ分類）
   type: ThemeType;
-  source: "worldbank" | "static";
-  indicator?: string; // WB指標コード（source=worldbank）
-  dataFile: string; // public/data からの相対パス
+  // worldbank: ビルド時に取得済みの静的JSON / worldbank-live: 選択時にAPIから直接取得
+  source: "worldbank" | "worldbank-live" | "static";
+  indicator?: string; // WB指標コード（source=worldbank | worldbank-live）
+  dataFile?: string; // public/data からの相対パス（source=worldbank-live では未使用）
   unit?: string; // 単位表示（凡例・ツールチップ）
   scale?: ScaleType; // 定量のみ
   scheme: string; // d3-scale-chromatic の interpolator 名（"Viridis" など）
@@ -55,6 +57,10 @@ export interface Manifest {
   source: string;
   themes: ThemeMeta[];
 }
+
+// public/data/catalog.json の1エントリ（fetch-catalog.ts が生成）
+// タプルにしてファイルサイズを抑える: [指標コード, 英語名, 単位]
+export type CatalogEntry = [id: string, nameEn: string, unit: string];
 
 // 各データファイルの中身: { ISO3: { value, year } }（定量）
 export type ValueRecord = Record<string, { value: number; year: number }>;

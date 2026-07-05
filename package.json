@@ -8,6 +8,7 @@
     "dev": "vite",
     "fetch": "tsx scripts/fetch-data.ts",
     "fetch:sample": "tsx scripts/make-sample-data.ts",
+    "fetch:catalog": "tsx scripts/fetch-catalog.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"

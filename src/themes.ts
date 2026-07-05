@@ -7,7 +7,11 @@
 //   - 配色は d3-scale-chromatic の interpolator 名（"Viridis" → interpolateViridis）。
 //   - データが揃わない指標は fetch 時に自動的に除外される（manifest 参照）。
 // =====================================================================
-import type { Theme, ScaleType, FormatKind, CategoryDef } from "./types";
+import type { Theme, ScaleType, FormatKind, CategoryDef, CatalogEntry } from "./types";
+
+// 合計テーマ数の目標と、カタログテーマのグループ名（詳細はファイル末尾のカタログ節）
+export const TARGET_THEME_COUNT = 10000;
+export const CATALOG_GROUP = "全指標カタログ";
 
 type QTuple = [
   string, // indicator
@@ -210,6 +214,7 @@ export const GROUP_ORDER: string[] = [
   "貿易・金融",
   "政府・社会",
   "国際的枠組み",
+  CATALOG_GROUP,
 ];
 
 // カテゴリ型テーマのメンバーシップ（データ生成スクリプトが参照）
@@ -225,3 +230,43 @@ export const MEMBERS: Record<string, string[]> = {
     "SVK", "SVN", "ESP", "SWE", "CHE", "TUR", "GBR", "USA",
   ],
 };
+
+// =====================================================================
+// 全指標カタログ（テーマ数を 10,000 に拡張する仕組み）
+//   - fetch-catalog.ts が World Bank の指標カタログ（約16,000件）を
+//     public/data/catalog.json に保存する（[コード, 英語名, 単位] のタプル）。
+//   - 厳選テーマと合わせて合計が TARGET_THEME_COUNT になるようアプリ側で
+//     カタログを切り詰める。
+//   - カタログテーマのデータは選択時にブラウザから World Bank API を直接
+//     取得する（ビルド時に1万指標を取得するのは非現実的なため）。
+// =====================================================================
+
+// カタログテーマの配色は指標コードから決定的に選ぶ（見た目に変化をつける）
+const CATALOG_SCHEMES = [
+  "Viridis", "Cividis", "YlGnBu", "YlOrRd", "PuBuGn", "BuPu", "GnBu",
+  "OrRd", "YlGn", "Purples", "Blues", "Greens", "Oranges", "RdPu",
+];
+function pickScheme(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return CATALOG_SCHEMES[h % CATALOG_SCHEMES.length];
+}
+
+// カタログエントリ → Theme（スケールはデータ取得後に自動判定するため未設定）
+export function themeFromCatalog(entry: CatalogEntry): Theme {
+  const [id, nameEn, unit] = entry;
+  const pct = unit.includes("%") || nameEn.includes("(%");
+  return {
+    id,
+    label: nameEn,
+    nameEn,
+    group: CATALOG_GROUP,
+    type: "quantitative",
+    source: "worldbank-live",
+    indicator: id,
+    unit: pct ? "%" : unit,
+    scheme: pickScheme(id),
+    fmt: pct ? "percent" : "ratio",
+    description: `${id} — World Bank 全指標カタログ（選択時にAPIから最新値を取得）`,
+  };
+}
