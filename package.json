@@ -1,0 +1,43 @@
+{
+  "name": "world-choropleth-map",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "テーマ別・世界コロプレスマップ（World Bank データ / D3 / React）",
+  "scripts": {
+    "dev": "vite",
+    "fetch": "tsx scripts/fetch-data.ts",
+    "fetch:sample": "tsx scripts/make-sample-data.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "d3-array": "^3.2.4",
+    "d3-geo": "^3.1.1",
+    "d3-scale": "^4.0.2",
+    "d3-scale-chromatic": "^3.1.0",
+    "d3-selection": "^3.0.0",
+    "d3-zoom": "^3.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/d3-array": "^3.2.1",
+    "@types/d3-geo": "^3.1.0",
+    "@types/d3-scale": "^4.0.8",
+    "@types/d3-scale-chromatic": "^3.0.3",
+    "@types/d3-selection": "^3.0.10",
+    "@types/d3-zoom": "^3.0.8",
+    "@types/node": "^22.7.4",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@types/topojson-client": "^3.1.4",
+    "@vitejs/plugin-react": "^4.3.2",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
+  }
+}

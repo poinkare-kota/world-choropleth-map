@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+# main への push（および手動実行）でデータ取得 → ビルド → Pages へデプロイ。
+# データ取得(World Bank API)はランナー上で実行するため、リポジトリに
+# データをコミットしておく必要はない（毎デプロイで最新化される）。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # World Bank から最新データを取得（失敗時はオフライン用サンプルで継続）
+      - name: Fetch data (World Bank)
+        run: npm run fetch || (echo "::warning::World Bank fetch failed; using sample data" && npm run fetch:sample)
+
+      - name: Build
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
