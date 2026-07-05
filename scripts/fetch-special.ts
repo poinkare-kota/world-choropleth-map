@@ -15,6 +15,7 @@ import { resolve } from "node:path";
 import { SPECIAL_TRADE, FAB_THEME_ID } from "../src/themes";
 import type { Manifest, ThemeMeta, ValueRecord } from "../src/types";
 import { DATA_DIR, VALID_SET, writeJSON } from "./common";
+import { ISO_NUMERIC_TO_A3 } from "../src/lib/isoNumericToA3";
 
 const MIN_COVERAGE = 5; // ニッチ統計は収録国が少なくても採用する
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -32,20 +33,55 @@ function metaOf(id: string, records: ValueRecord): ThemeMeta {
 }
 
 // ---- 1) UN Comtrade（公開プレビューAPI・キー不要） ----
+// フィールド名はAPIバージョンで揺れがあるため、複数の候補を許容して解析する
 interface ComtradeRow {
   reporterISO?: string;
+  reporterCode?: number | string;
+  partnerCode?: number | string;
   refYear?: number;
+  period?: number | string;
   primaryValue?: number;
+  fobvalue?: number;
+  cifvalue?: number;
+  [k: string]: unknown;
 }
 
+let loggedSample = false;
+
 async function fetchComtrade(hs: string, flow: "X" | "M", year: number): Promise<ComtradeRow[]> {
+  // partner2Code/motCode/customsCode を固定して「報告国×対世界」1行に絞る
+  // （絞らないと輸送手段・税関手続きの組合せで行が増え、500行上限に当たる）
   const url =
     `https://comtradeapi.un.org/public/v1/preview/C/A/HS` +
-    `?period=${year}&cmdCode=${hs}&flowCode=${flow}&partnerCode=0`;
-  const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`Comtrade HTTP ${res.status}`);
-  const json = (await res.json()) as { data?: ComtradeRow[] };
-  return json.data ?? [];
+    `?period=${year}&cmdCode=${hs}&flowCode=${flow}` +
+    `&partnerCode=0&partner2Code=0&motCode=0&customsCode=C00`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, { headers: { accept: "application/json" } });
+    if (res.status === 429) {
+      // レート制限: 待って1回だけ再試行
+      await sleep(20000);
+      continue;
+    }
+    if (!res.ok) throw new Error(`Comtrade HTTP ${res.status}`);
+    const json = (await res.json()) as { data?: ComtradeRow[] };
+    return json.data ?? [];
+  }
+  throw new Error("Comtrade HTTP 429 (after retry)");
+}
+
+// 1行から (ISO3, 値, 年) を頑健に取り出す
+function parseRow(r: ComtradeRow, fallbackYear: number): [string, number, number] | null {
+  // 対世界(partner=0)以外の行が混ざっていたら除外
+  if (r.partnerCode != null && Number(r.partnerCode) !== 0) return null;
+  let iso3 = typeof r.reporterISO === "string" ? r.reporterISO : "";
+  if (!VALID_SET.has(iso3) && r.reporterCode != null) {
+    iso3 = ISO_NUMERIC_TO_A3[String(r.reporterCode).padStart(3, "0")] ?? iso3;
+  }
+  if (!VALID_SET.has(iso3)) return null;
+  const value = r.primaryValue ?? r.fobvalue ?? r.cifvalue;
+  if (value == null || !(value > 0)) return null;
+  const year = r.refYear ?? Number(r.period) ?? fallbackYear;
+  return [iso3, value, Number(year) || fallbackYear];
 }
 
 async function buildTradeTheme(id: string, hs: string, flow: "X" | "M"): Promise<ValueRecord> {
@@ -54,17 +90,22 @@ async function buildTradeTheme(id: string, hs: string, flow: "X" | "M"): Promise
   for (const year of [2024, 2023, 2022]) {
     try {
       const rows = await fetchComtrade(hs, flow, year);
+      if (!loggedSample && rows.length) {
+        console.log(`  sample row: ${JSON.stringify(rows[0]).slice(0, 500)}`);
+        loggedSample = true;
+      }
+      if (rows.length >= 500) console.warn(`  ${id}: year=${year} hit 500-row cap`);
       for (const r of rows) {
-        const iso3 = r.reporterISO ?? "";
-        if (!VALID_SET.has(iso3)) continue;
-        if (r.primaryValue == null || !(r.primaryValue > 0)) continue;
-        if (!out[iso3]) out[iso3] = { value: r.primaryValue, year: r.refYear ?? year };
+        const parsed = parseRow(r, year);
+        if (!parsed) continue;
+        const [iso3, value, y] = parsed;
+        if (!out[iso3]) out[iso3] = { value, year: y };
       }
       console.log(`  ${id}: year=${year} rows=${rows.length} cum=${Object.keys(out).length}`);
     } catch (e) {
       console.warn(`  ${id}: year=${year} failed: ${(e as Error).message}`);
     }
-    await sleep(1200); // 公開APIなのでリクエスト間隔を空ける
+    await sleep(3000); // 公開APIなのでリクエスト間隔を空ける
   }
   return out;
 }
