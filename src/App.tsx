@@ -10,6 +10,7 @@ import { ThemeSelector } from "./components/ThemeSelector";
 import { MapChart, type GeoFeature } from "./components/MapChart";
 import { Legend } from "./components/Legend";
 import { Tooltip, type TooltipInfo } from "./components/Tooltip";
+import { CountryCard, type SelectedCountry } from "./components/CountryCard";
 
 export default function App() {
   const features = useMemo(() => {
@@ -114,6 +115,10 @@ export default function App() {
   });
   const onHover = (info: TooltipInfo | null, x: number, y: number) => setHover({ info, x, y });
 
+  // 国カード（国クリックで開く。テーマを切り替えても開いたまま値が更新される）
+  const [selectedCountry, setSelectedCountry] = useState<SelectedCountry | null>(null);
+  const onSelectCountry = (iso3: string, name: string) => setSelectedCountry({ iso3, name });
+
   const meta = manifest?.themes.find((t) => t.id === theme?.id);
 
   return (
@@ -158,8 +163,23 @@ export default function App() {
             )}
 
           <main className="stage">
-            <MapChart features={features} colorOf={colorOf} describe={describe} onHover={onHover} />
+            <MapChart
+              features={features}
+              colorOf={colorOf}
+              describe={describe}
+              onHover={onHover}
+              onSelect={onSelectCountry}
+            />
             <Legend theme={theme} min={data.min} max={data.max} colorScale={colorScale} />
+            {selectedCountry && (
+              <CountryCard
+                country={selectedCountry}
+                theme={theme}
+                records={theme?.type === "quantitative" ? (data.records as ValueRecord | null) : null}
+                onClose={() => setSelectedCountry(null)}
+                onSelectCountry={onSelectCountry}
+              />
+            )}
           </main>
 
           <footer className="footer">

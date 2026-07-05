@@ -18,6 +18,7 @@ interface Props {
   colorOf: (iso3: string | null) => string;
   describe: (iso3: string | null, name: string) => TooltipInfo;
   onHover: (info: TooltipInfo | null, x: number, y: number) => void;
+  onSelect: (iso3: string, name: string) => void; // 国クリック/タップで国カードを開く
 }
 
 const W = 980;
@@ -28,7 +29,7 @@ export function iso3Of(id: string | number | undefined): string | null {
   return ISO_NUMERIC_TO_A3[String(id).padStart(3, "0")] ?? null;
 }
 
-export function MapChart({ features, colorOf, describe, onHover }: Props) {
+export function MapChart({ features, colorOf, describe, onHover, onSelect }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gRef = useRef<SVGGElement | null>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -107,6 +108,7 @@ export function MapChart({ features, colorOf, describe, onHover }: Props) {
                 className="country"
                 onMouseMove={(e) => onHover(describe(iso3, name), e.clientX, e.clientY)}
                 onMouseLeave={() => onHover(null, 0, 0)}
+                onClick={() => iso3 && onSelect(iso3, name)}
                 onTouchStart={(e) => {
                   const t = e.touches[0];
                   if (t) onHover(describe(iso3, name), t.clientX, t.clientY);
