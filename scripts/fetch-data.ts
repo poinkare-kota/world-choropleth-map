@@ -52,7 +52,9 @@ function metaOf(id: string, records: ValueRecord): ThemeMeta {
 }
 
 async function main() {
-  const quant = THEMES.filter((t) => t.type === "quantitative") as Theme[];
+  const quant = THEMES.filter(
+    (t) => t.type === "quantitative" && t.source === "worldbank",
+  ) as Theme[];
   console.log(`Fetching ${quant.length} indicators from World Bank …`);
 
   const metas: ThemeMeta[] = [];

@@ -38,6 +38,10 @@ jobs:
       - name: Fetch data (World Bank)
         run: npm run fetch || (echo "::warning::World Bank fetch failed; using sample data" && npm run fetch:sample)
 
+      # 特集・ニッチ統計（Comtrade貿易HS・半導体ファブ数）。失敗テーマは自動除外
+      - name: Fetch special datasets (Comtrade, Wikipedia)
+        run: npm run fetch:special || echo "::warning::Special datasets fetch failed; special themes disabled"
+
       # 全指標カタログを取得（失敗してもサイトは厳選テーマのみで動作する）
       - name: Fetch indicator catalog (World Bank)
         run: npm run fetch:catalog || echo "::warning::Catalog fetch failed; catalog themes disabled"

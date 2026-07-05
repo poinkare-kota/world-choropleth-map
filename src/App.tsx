@@ -184,7 +184,20 @@ export default function App() {
 
           <footer className="footer">
             <span>
-              出典: <a href="https://data.worldbank.org/" target="_blank" rel="noreferrer">World Bank Open Data</a>
+              出典:{" "}
+              {theme.id.startsWith("sp_trade_") ? (
+                <a href="https://comtradeplus.un.org/" target="_blank" rel="noreferrer">UN Comtrade</a>
+              ) : theme.id === "sp_fabs" ? (
+                <a
+                  href="https://en.wikipedia.org/wiki/List_of_semiconductor_fabrication_plants"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Wikipedia（稼働中ファブの概数）
+                </a>
+              ) : (
+                <a href="https://data.worldbank.org/" target="_blank" rel="noreferrer">World Bank Open Data</a>
+              )}
               {theme.type === "categorical" ? "（加盟情報は静的データ）" : ""}
             </span>
             {meta && theme.type === "quantitative" && (

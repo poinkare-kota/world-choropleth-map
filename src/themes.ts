@@ -12,6 +12,69 @@ import type { Theme, ScaleType, FormatKind, CategoryDef, CatalogEntry } from "./
 // 合計テーマ数の目標と、カタログテーマのグループ名（詳細はファイル末尾のカタログ節）
 export const TARGET_THEME_COUNT = 10000;
 export const CATALOG_GROUP = "全指標カタログ";
+export const SPECIAL_GROUP = "特集・ニッチ統計";
+
+// ---- 特集・ニッチ統計（fetch-special.ts がビルド時に生成する静的データ） ----
+// HSコード級の貿易統計（UN Comtrade・対世界・最新年）。flow: X=輸出, M=輸入
+export interface SpecialTradeSpec {
+  id: string;
+  hs: string;
+  flow: "X" | "M";
+  label: string;
+  scheme: string;
+}
+const tr = (hs: string, flow: "X" | "M", label: string, scheme: string): SpecialTradeSpec => ({
+  id: `sp_trade_${flow}_${hs}`,
+  hs,
+  flow,
+  label,
+  scheme,
+});
+export const SPECIAL_TRADE: SpecialTradeSpec[] = [
+  tr("010611", "X", "サル (霊長類) の輸出額", "YlOrBr"),
+  tr("010611", "M", "サル (霊長類) の輸入額", "OrRd"),
+  tr("0803", "X", "バナナの輸出額", "YlOrRd"),
+  tr("0901", "X", "コーヒーの輸出額", "YlOrBr"),
+  tr("1806", "X", "チョコレートの輸出額", "Oranges"),
+  tr("2204", "X", "ワインの輸出額", "PuRd"),
+  tr("8542", "X", "半導体 (集積回路) の輸出額", "Blues"),
+  tr("8542", "M", "半導体 (集積回路) の輸入額", "PuBu"),
+  tr("8703", "X", "乗用車の輸出額", "GnBu"),
+  tr("93", "X", "武器・弾薬の輸出額", "Reds"),
+];
+export const FAB_THEME_ID = "sp_fabs";
+
+const SPECIAL_THEMES: Theme[] = [
+  ...SPECIAL_TRADE.map(
+    (t): Theme => ({
+      id: t.id,
+      label: t.label,
+      group: SPECIAL_GROUP,
+      type: "quantitative",
+      source: "static",
+      dataFile: `data/special/${t.id}.json`,
+      unit: "ドル",
+      scale: "log",
+      scheme: t.scheme,
+      fmt: "usd",
+      description: `UN Comtrade（HS ${t.hs}・対世界・${t.flow === "X" ? "輸出" : "輸入"}額・最新年）`,
+    }),
+  ),
+  {
+    id: FAB_THEME_ID,
+    label: "半導体製造工場の数",
+    group: SPECIAL_GROUP,
+    type: "quantitative",
+    source: "static",
+    dataFile: `data/special/${FAB_THEME_ID}.json`,
+    unit: "か所",
+    scale: "linear",
+    scheme: "Viridis",
+    fmt: "ratio",
+    description:
+      "稼働中の半導体前工程工場（ファブ）の概数。Wikipedia: List of semiconductor fabrication plants からビルド時に集計",
+  },
+];
 
 type QTuple = [
   string, // indicator
@@ -145,6 +208,13 @@ const QUANT: QTuple[] = [
   ["GC.TAX.TOTL.GD.ZS", "税収 (対GDP)", "政府・社会", "%", "linear", "percent", "Greens"],
   ["SG.GEN.PARL.ZS", "女性国会議員比率", "政府・社会", "%", "linear", "percent", "RdPu"],
   ["VC.IHR.PSRC.P5", "殺人発生率", "政府・社会", "/10万人", "linear", "ratio", "Reds"],
+
+  // ---- 観光・旅行 ----
+  ["ST.INT.ARVL", "外国人旅行者数 (受入)", "観光・旅行", "人", "log", "people", "YlGnBu"],
+  ["ST.INT.DPRT", "出国旅行者数", "観光・旅行", "人", "log", "people", "GnBu"],
+  ["ST.INT.RCPT.CD", "国際観光収入", "観光・旅行", "ドル", "log", "usd", "Greens"],
+  ["ST.INT.XPND.CD", "国際観光支出", "観光・旅行", "ドル", "log", "usd", "Oranges"],
+  ["ST.INT.RCPT.XP.ZS", "観光収入の割合 (対輸出)", "観光・旅行", "%", "linear", "percent", "BuGn"],
 ];
 
 // ---- カテゴリ型テーマ（有無で塗り分け・静的JSONで管理） ----
@@ -181,6 +251,7 @@ const CATEGORICAL: Theme[] = [
 ];
 
 export const THEMES: Theme[] = [
+  ...SPECIAL_THEMES,
   ...QUANT.map(
     ([indicator, label, group, unit, scale, fmt, scheme, invert]): Theme => ({
       id: indicator,
@@ -213,6 +284,8 @@ export const GROUP_ORDER: string[] = [
   "インフラ・技術",
   "貿易・金融",
   "政府・社会",
+  "観光・旅行",
+  SPECIAL_GROUP,
   "国際的枠組み",
   CATALOG_GROUP,
 ];

@@ -60,7 +60,12 @@ function sampleValue(theme: Theme, iso3: string): number {
 }
 
 async function main() {
-  const quant = THEMES.filter((t) => t.type === "quantitative") as Theme[];
+  const quant = THEMES.filter(
+    (t) => t.type === "quantitative" && t.source === "worldbank",
+  ) as Theme[];
+  const special = THEMES.filter(
+    (t) => t.type === "quantitative" && t.source === "static",
+  ) as Theme[];
   const metas: ThemeMeta[] = [];
 
   await pool(quant, 16, async (theme) => {
@@ -84,6 +89,28 @@ async function main() {
       latestYear: Math.max(...years),
     });
   });
+
+  // 特集テーマ（貿易HS・ファブ数など）も合成データを生成
+  for (const theme of special) {
+    const records: ValueRecord = {};
+    for (const iso3 of VALID_ISO3) {
+      if (hash01("miss|" + theme.id + iso3) < 0.55) continue; // ニッチ統計は収録国少なめ
+      const r = hash01(iso3 + "|" + theme.id);
+      records[iso3] =
+        theme.fmt === "usd"
+          ? { value: Math.exp(Math.log(1e5) + (Math.log(5e10) - Math.log(1e5)) * r), year: 2023 }
+          : { value: Math.round(1 + r * 80), year: 2024 };
+    }
+    writeJSON(resolve(DATA_DIR, theme.dataFile!.replace(/^data\//, "")), records);
+    const vals = Object.values(records).map((d) => d.value);
+    metas.push({
+      id: theme.id,
+      coverage: vals.length,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      latestYear: 2023,
+    });
+  }
 
   for (const [id, members] of Object.entries(MEMBERS)) {
     const rec: Record<string, boolean> = {};
